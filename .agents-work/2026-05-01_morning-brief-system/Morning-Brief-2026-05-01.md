@@ -2,7 +2,7 @@
 
 ## 🗂️ JIRA Sprint Status
 
-> ⚠️ JIRA data unavailable: 403 Client Error: Forbidden for url: https://cushingsystemsinc.atlassian.net/rest/api/3/search?jql=status+%3D+%27In+Progress%27+AND+sprint+in+openSprints%28%29&fields=key%2Csummary%2Cassignee%2Cstatus&maxResults=50
+> ⚠️ JIRA data unavailable: 403 Client Error: Forbidden for url: https://cushingsystemsinc.atlassian.net/rest/api/3/search/jql?jql=status+%3D+%27In+Progress%27+AND+sprint+in+openSprints%28%29&fields=key%2Csummary%2Cassignee%2Cstatus&maxResults=50
 
 ## ☀️ Weather — Los Angeles
 
@@ -44,7 +44,7 @@
 
 ## 📋 Report Metadata
 
-**Generated:** 2026-05-01T17:50:53Z UTC
+**Generated:** 2026-05-01T17:56:49Z UTC
 
 | Source | Status |
 |---|---|
