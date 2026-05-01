@@ -1,0 +1,123 @@
+{
+  "acceptance_criteria": [
+    {
+      "id": "AC-001",
+      "description": "GitHub Actions workflow triggers automatically every day at 6:00 AM UTC via cron schedule '0 6 * * *' and supports manual workflow_dispatch for testing.",
+      "verify": [
+        "manual: Open .github/workflows/morning-brief.yml and confirm schedule.cron is '0 6 * * *'",
+        "manual: Confirm workflow_dispatch trigger is also present",
+        "manual: Trigger manually via GitHub UI Actions tab and verify workflow runs successfully"
+      ]
+    },
+    {
+      "id": "AC-002",
+      "description": "JIRA section of the report includes all In Progress issues and all issues created in the last 24 hours from the active sprint, each showing key, summary, assignee display name, and status.",
+      "verify": [
+        "manual: With valid JIRA_API_TOKEN and JIRA_HOST secrets set, run workflow and inspect generated report JIRA section",
+        "manual: Cross-reference report JIRA entries against JIRA board In Progress column and New issues",
+        "manual: Confirm each entry shows: key (e.g. PROJ-123), summary text, assignee name, status label",
+        "manual: Confirm duplicate keys (appearing in both In Progress and New-24h) appear only once in report"
+      ]
+    },
+    {
+      "id": "AC-003",
+      "description": "Weather section displays current forecast for Los Angeles, CA (34.0522°N, 118.2437°W) including High temperature (°F), Low temperature (°F), and precipitation probability.",
+      "verify": [
+        "manual: Run workflow and inspect Weather section of generated report",
+        "manual: Confirm High and Low temperatures are present and in Fahrenheit",
+        "manual: Confirm precipitation probability percentage is shown",
+        "manual: Cross-reference temperature values against current Open-Meteo API response for LA coordinates"
+      ]
+    },
+    {
+      "id": "AC-004",
+      "description": "Political Headlines section includes exactly 5 current US national political headlines, each with title, source name, published date (YYYY-MM-DD), and URL.",
+      "verify": [
+        "manual: With valid NEWSAPI_KEY secret set, run workflow and inspect Headlines section",
+        "manual: Count exactly 5 headlines in the report",
+        "manual: Confirm each headline shows: title, source name, date in YYYY-MM-DD format, clickable URL",
+        "manual: Verify at least one URL resolves to a live news article"
+      ]
+    },
+    {
+      "id": "AC-005",
+      "description": "Sports section includes the LA Dodgers' most recent completed game with: opponent team name, final score (Dodgers score vs Opponent score), and series win/loss/tie status.",
+      "verify": [
+        "manual: Run workflow (no auth required for MLB Stats API) and inspect Sports section",
+        "manual: Confirm opponent name, final score, and series status are present",
+        "manual: Cross-reference against MLB Stats API response for team ID 119 most recent game",
+        "manual: If off-season, confirm section renders 'No recent Dodgers game available.' message"
+      ]
+    },
+    {
+      "id": "AC-006",
+      "description": "Magic: The Gathering section includes set announcements and card spoilers released within the last 7 days, each showing set name, release date, and brief description.",
+      "verify": [
+        "manual: Run workflow (no auth required for Scryfall API) and inspect MTG section",
+        "manual: Confirm all results are dated within the last 7 days from report generation date",
+        "manual: Confirm each entry shows set name, release date, and description",
+        "manual: If no recent releases, confirm section renders 'No new MTG releases in the last 7 days.' message"
+      ]
+    },
+    {
+      "id": "AC-007",
+      "description": "Generated report filename follows the exact pattern Morning-Brief-YYYY-MM-DD.md where YYYY-MM-DD is the UTC date at time of workflow execution.",
+      "verify": [
+        "manual: After workflow run, verify report file exists in session directory",
+        "manual: Confirm filename matches Morning-Brief-YYYY-MM-DD.md pattern with correct UTC date",
+        "manual: Run workflow twice on same day and confirm file is overwritten (not duplicated)"
+      ]
+    },
+    {
+      "id": "AC-008",
+      "description": "Report is stored in the .agents-work/2026-05-01_morning-brief-system/ directory within the repository.",
+      "verify": [
+        "manual: After workflow run, navigate to .agents-work/2026-05-01_morning-brief-system/ in repository",
+        "manual: Confirm Morning-Brief-YYYY-MM-DD.md file exists in that directory",
+        "manual: Confirm no other unexpected report files are created in other directories"
+      ]
+    },
+    {
+      "id": "AC-009",
+      "description": "All API credentials (JIRA_API_TOKEN, JIRA_HOST, NEWSAPI_KEY) are read exclusively from GitHub Secrets/environment variables. Zero credentials appear hardcoded in source code, workflow files, or generated reports.",
+      "verify": [
+        "manual: Audit scripts/morning_brief.py for any hardcoded tokens, keys, or URLs containing credentials",
+        "manual: Audit .github/workflows/morning-brief.yml for any hardcoded credentials",
+        "manual: Confirm Python script reads JIRA_API_TOKEN via os.environ.get('JIRA_API_TOKEN')",
+        "manual: Inspect generated report file and confirm no token values appear in output",
+        "manual: Run workflow without secrets set and confirm script fails gracefully with clear error message"
+      ]
+    },
+    {
+      "id": "AC-010",
+      "description": "Script generates a partial report with available sections if any individual data source fails. Workflow exits with code 0 on partial success and code 1 only if ALL sources fail.",
+      "verify": [
+        "manual: Temporarily set an invalid NEWSAPI_KEY and run workflow; verify report still generates with other 4 sections",
+        "manual: Inspect workflow run logs and confirm warning message appears for the failed source",
+        "manual: Confirm workflow exit code is 0 (success) despite one source failing",
+        "manual: Set ALL secrets to invalid values and confirm workflow exits with code 1"
+      ]
+    },
+    {
+      "id": "AC-011",
+      "description": "Generated report includes a metadata footer section with: ISO-8601 UTC timestamp of report generation, and per-source status (success/failed/skipped) for each of the 5 data sources.",
+      "verify": [
+        "manual: Open generated Morning-Brief-YYYY-MM-DD.md and scroll to the bottom section",
+        "manual: Confirm 'Generated at' timestamp is present in ISO-8601 UTC format (e.g. 2026-05-01T06:02:15Z)",
+        "manual: Confirm per-source status indicators for JIRA, Weather, News, Sports, and MTG are listed",
+        "manual: After a partial failure run, confirm failed source shows 'failed' or 'error' status in footer"
+      ]
+    },
+    {
+      "id": "AC-012",
+      "description": "Generated report renders cleanly in GitHub's markdown viewer with no formatting errors, broken tables, unclosed blocks, or raw HTML artifacts.",
+      "verify": [
+        "manual: Open the generated Morning-Brief-YYYY-MM-DD.md file in GitHub repository web UI",
+        "manual: Confirm all section headers render as H2/H3 headings",
+        "manual: Confirm any tables (JIRA issues, news headlines) render as proper markdown tables",
+        "manual: Confirm no raw HTML tags or unescaped markdown characters appear in the rendered view",
+        "manual: Confirm the report is scannable and readable in under 2 minutes"
+      ]
+    }
+  ]
+}

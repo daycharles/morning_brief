@@ -1,0 +1,469 @@
+project:
+  name: "Daily Morning Briefing System"
+  definition_of_done:
+    - "CI green (all tests pass)"
+    - "All 12 acceptance criteria in acceptance.json verified"
+    - "No hardcoded credentials anywhere in codebase"
+    - "README/SETUP.md documents required GitHub Secrets and setup steps"
+    - "Generated markdown report renders correctly in GitHub UI"
+
+tasks:
+  - id: T-001
+    status: completed
+    type: chore
+    title: "Project scaffold — directory structure, requirements.txt, __init__.py files"
+    depends_on: []
+    goal: "Create the full project directory layout defined in architecture.md: scripts/fetchers/, scripts/formatters/, scripts/notifiers/, scripts/utils/, tests/. Add __init__.py to each package. Create requirements.txt with 'requests>=2.31.0' and 'pytest>=7.4.0'. Add .gitignore entries for __pycache__, *.pyc, .env, and *.egg-info."
+    non_goals:
+      - "Write any implementation logic in the created files"
+      - "Configure GitHub Actions or CI"
+    context_files:
+      - ".agents-work/2026-05-01_morning-brief-system/spec.md"
+      - ".agents-work/2026-05-01_morning-brief-system/architecture.md"
+    files_expected:
+      - "scripts/__init__.py"
+      - "scripts/fetchers/__init__.py"
+      - "scripts/formatters/__init__.py"
+      - "scripts/notifiers/__init__.py"
+      - "scripts/utils/__init__.py"
+      - "tests/__init__.py"
+      - "requirements.txt"
+      - ".gitignore"
+    acceptance_checks:
+      - "cmd: python -c \"import scripts.fetchers, scripts.formatters, scripts.notifiers, scripts.utils\" && echo OK"
+      - "cmd: cat requirements.txt | grep requests"
+      - "cmd: cat requirements.txt | grep pytest"
+      - "manual: Verify directory structure matches architecture.md layout exactly"
+      - "manual: Confirm .gitignore has entries for __pycache__ and *.pyc"
+      - "manual: Verify AC-008 — .agents-work/2026-05-01_morning-brief-system/ directory exists in repo (already exists, confirm no changes made)"
+    risk_flags:
+      - "none"
+    done_when:
+      - "All directories and __init__.py files exist per architecture.md layout"
+      - "requirements.txt lists requests and pytest with version pins"
+      - ".gitignore updated with Python artifact exclusions"
+      - "No lint errors"
+
+  - id: T-002
+    status: completed
+    type: chore
+    title: "GitHub Actions workflow YAML — schedule, secrets, Python setup, git commit/push"
+    depends_on:
+      - "T-001"
+    goal: "Create .github/workflows/morning-brief.yml with: schedule cron '0 6 * * *' and workflow_dispatch triggers; ubuntu-latest runner; Python 3.10 setup with pip install -r requirements.txt; env block exposing JIRA_API_TOKEN, JIRA_HOST, NEWSAPI_KEY, SLACK_WEBHOOK_URL from GitHub Secrets; step to run scripts/morning_brief.py; git add/commit/push steps to persist the generated report. Include a separate 'test' job that runs pytest before the morning-brief job."
+    non_goals:
+      - "Write the Python scripts invoked by the workflow"
+      - "Store any credential values in the workflow file"
+    context_files:
+      - ".agents-work/2026-05-01_morning-brief-system/spec.md"
+      - ".agents-work/2026-05-01_morning-brief-system/architecture.md"
+    files_expected:
+      - ".github/workflows/morning-brief.yml"
+    acceptance_checks:
+      - "cmd: grep \"cron: '0 6 \\* \\* \\*'\" .github/workflows/morning-brief.yml"
+      - "cmd: grep \"workflow_dispatch\" .github/workflows/morning-brief.yml"
+      - "cmd: grep \"JIRA_API_TOKEN\" .github/workflows/morning-brief.yml"
+      - "cmd: grep \"NEWSAPI_KEY\" .github/workflows/morning-brief.yml"
+      - "cmd: grep \"SLACK_WEBHOOK_URL\" .github/workflows/morning-brief.yml"
+      - "cmd: grep -E \"secrets\\.JIRA_API_TOKEN|secrets\\.NEWSAPI_KEY\" .github/workflows/morning-brief.yml"
+      - "manual: Confirm AC-001 — schedule.cron is '0 6 * * *' and workflow_dispatch is present"
+      - "manual: Confirm AC-009 — all secrets are referenced via secrets context, no literal credential values"
+      - "manual: Confirm git commit/push steps exist to persist the generated report file"
+      - "manual: Confirm Python 3.10+ is specified in setup-python action"
+    risk_flags:
+      - "security"
+    done_when:
+      - "Workflow YAML is valid and parseable by GitHub Actions"
+      - "Cron schedule matches AC-001 exactly"
+      - "All required secrets referenced via secrets.* context only (AC-009)"
+      - "Separate test job runs pytest before morning-brief job"
+      - "Git commit/push steps present to store generated report"
+
+  - id: T-003
+    status: completed
+    type: feat
+    title: "FetchResult dataclass + http_client utility with timeout, retry, and HTTPS enforcement"
+    depends_on:
+      - "T-001"
+    goal: "Implement scripts/utils/fetch_result.py containing the FetchResult dataclass (source: str, status: str, data: Any, error_message: Optional[str]). Implement scripts/utils/http_client.py with a get() function that enforces 10-second timeout, 2-retry exponential backoff (sleep 1s then 2s) on connection errors/timeouts/5xx, HTTPS URL validation (reject http://), and WARNING-level logging for retries and rate-limit (HTTP 429) responses. Uses requests.Session internally."
+    non_goals:
+      - "Implement any fetcher or report logic"
+      - "Handle authentication — that is each fetcher's responsibility"
+    context_files:
+      - ".agents-work/2026-05-01_morning-brief-system/spec.md"
+      - ".agents-work/2026-05-01_morning-brief-system/architecture.md"
+    files_expected:
+      - "scripts/utils/fetch_result.py"
+      - "scripts/utils/http_client.py"
+    acceptance_checks:
+      - "cmd: python -c \"from scripts.utils.fetch_result import FetchResult; r = FetchResult('jira','success'); print(r.status)\""
+      - "cmd: python -c \"from scripts.utils.http_client import get; print('imported ok')\""
+      - "manual: Confirm AC-009 — http_client.get rejects http:// URLs and raises ValueError"
+      - "manual: Confirm retry logic sleeps 1s then 2s between attempts (verifiable via unit tests in T-012)"
+      - "manual: Confirm FetchResult fields match architecture.md interface contract exactly"
+    risk_flags:
+      - "security"
+    done_when:
+      - "FetchResult dataclass importable from scripts.utils.fetch_result"
+      - "http_client.get enforces HTTPS, 10s timeout, 2-retry backoff"
+      - "HTTP 429 treated as non-retryable with WARNING log"
+      - "No credentials or hardcoded values in these modules"
+      - "No lint errors (PEP 8)"
+
+  - id: T-004
+    status: completed
+    type: feat
+    title: "JIRA fetcher — active sprint In Progress and New-24h issues with deduplication"
+    depends_on:
+      - "T-003"
+    goal: "Implement scripts/fetchers/jira_fetcher.py with fetch(config: dict) -> FetchResult. Query JIRA REST API v3 endpoint https://{JIRA_HOST}/rest/api/3/search with two JQL queries: (1) status = 'In Progress' AND sprint in openSprints(), (2) created >= -24h. Merge and deduplicate results by issue key. Each issue record must include: key, summary, assignee display name, status. Authenticate with Bearer token from config['jira_api_token']. Handle EC-004 (no active sprint) by returning a FetchResult with data indicating no sprint. Catch all exceptions and return FetchResult(status='failed')."
+    non_goals:
+      - "Support multiple JIRA projects"
+      - "Support pagination beyond default result size"
+    context_files:
+      - ".agents-work/2026-05-01_morning-brief-system/spec.md"
+      - ".agents-work/2026-05-01_morning-brief-system/architecture.md"
+    files_expected:
+      - "scripts/fetchers/jira_fetcher.py"
+    acceptance_checks:
+      - "cmd: python -c \"from scripts.fetchers.jira_fetcher import fetch; print('imported ok')\""
+      - "manual: Confirm AC-002 — fetch() returns issues with key, summary, assignee, status fields"
+      - "manual: Confirm AC-009 — JIRA_API_TOKEN is never hardcoded; read from config dict only"
+      - "manual: Confirm AC-010 — any exception caught internally; returns FetchResult(status='failed') without raising"
+      - "manual: Confirm EC-004 — no active sprint returns FetchResult with data={'message': 'No active sprint found.'}"
+      - "manual: Confirm EC-008 — duplicate keys across both JQL queries appear only once in result"
+    risk_flags:
+      - "security"
+    done_when:
+      - "fetch() function signature matches architecture.md contract"
+      - "Deduplication by issue key implemented (EC-008)"
+      - "No-sprint edge case handled (EC-004)"
+      - "All exceptions caught; FetchResult(status='failed') returned on error"
+      - "No hardcoded tokens or URLs containing credentials"
+
+  - id: T-005
+    status: completed
+    type: feat
+    title: "Weather fetcher — Open-Meteo LA forecast with High/Low °F and precipitation"
+    depends_on:
+      - "T-003"
+    goal: "Implement scripts/fetchers/weather_fetcher.py with fetch(config: dict) -> FetchResult. Query Open-Meteo API (https://api.open-meteo.com/v1/forecast) with fixed LA coordinates (lat=34.0522, lon=-118.2437), requesting daily temperature_2m_max, temperature_2m_min, and precipitation_probability_max. Convert Celsius to Fahrenheit. Return FetchResult with data containing: high_f, low_f, precipitation_probability. No authentication required. Catch all exceptions and return FetchResult(status='failed')."
+    non_goals:
+      - "Support configurable locations"
+      - "Support OpenWeatherMap fallback (optional per spec)"
+    context_files:
+      - ".agents-work/2026-05-01_morning-brief-system/spec.md"
+      - ".agents-work/2026-05-01_morning-brief-system/architecture.md"
+    files_expected:
+      - "scripts/fetchers/weather_fetcher.py"
+    acceptance_checks:
+      - "cmd: python -c \"from scripts.fetchers.weather_fetcher import fetch; print('imported ok')\""
+      - "manual: Confirm AC-003 — fetch() returns data with high_f, low_f, precipitation_probability fields"
+      - "manual: Confirm AC-010 — exceptions caught internally; FetchResult(status='failed') on error"
+      - "manual: Confirm LA coordinates are hardcoded constants (not secrets) per architecture.md"
+      - "manual: Confirm temperatures are converted to Fahrenheit (not raw Celsius from Open-Meteo)"
+    risk_flags:
+      - "none"
+    done_when:
+      - "fetch() uses Open-Meteo API with LA fixed coords"
+      - "Returns high_f, low_f, precipitation_probability in data"
+      - "Celsius-to-Fahrenheit conversion applied"
+      - "All exceptions caught; graceful failure (AC-010)"
+
+  - id: T-006
+    status: completed
+    type: feat
+    title: "News fetcher — NewsAPI top 5 US political headlines with title, source, date, URL"
+    depends_on:
+      - "T-003"
+    goal: "Implement scripts/fetchers/news_fetcher.py with fetch(config: dict) -> FetchResult. Query NewsAPI (https://newsapi.org/v2/top-headlines) with parameters: country=us, category=politics, pageSize=5. Authenticate with API key from config['newsapi_key'] via 'X-Api-Key' header. Return FetchResult with data as list of dicts, each containing: title, source (name), published_date (YYYY-MM-DD extracted from publishedAt), url. Catch all exceptions and return FetchResult(status='failed')."
+    non_goals:
+      - "Support topics beyond US politics"
+      - "Support pagination or more than 5 headlines"
+    context_files:
+      - ".agents-work/2026-05-01_morning-brief-system/spec.md"
+      - ".agents-work/2026-05-01_morning-brief-system/architecture.md"
+    files_expected:
+      - "scripts/fetchers/news_fetcher.py"
+    acceptance_checks:
+      - "cmd: python -c \"from scripts.fetchers.news_fetcher import fetch; print('imported ok')\""
+      - "manual: Confirm AC-004 — fetch() returns exactly 5 articles with title, source, published_date, url"
+      - "manual: Confirm AC-009 — NEWSAPI_KEY is never hardcoded; read from config dict only"
+      - "manual: Confirm AC-010 — exceptions caught; FetchResult(status='failed') on any error"
+      - "manual: Confirm published_date is formatted as YYYY-MM-DD (not raw ISO timestamp)"
+    risk_flags:
+      - "security"
+    done_when:
+      - "fetch() queries NewsAPI for top 5 US political headlines"
+      - "Each article has title, source, published_date (YYYY-MM-DD), url"
+      - "API key read from config dict only (no hardcoding)"
+      - "All exceptions caught; graceful failure (AC-010)"
+
+  - id: T-007
+    status: completed
+    type: feat
+    title: "Sports fetcher — MLB Stats API Dodgers most recent game with off-season handling"
+    depends_on:
+      - "T-003"
+    goal: "Implement scripts/fetchers/sports_fetcher.py with fetch(config: dict) -> FetchResult. Query MLB Stats API (https://statsapi.mlb.com/api/v1/schedule) for Dodgers team ID 119, sportId=1, gameType=R, most recent completed game. Return FetchResult with data containing: opponent, dodgers_score, opponent_score, series_status. Handle EC-005 (off-season / no recent game) by returning FetchResult with data={'message': 'No recent Dodgers game available.'}. No authentication required. Catch all exceptions and return FetchResult(status='failed')."
+    non_goals:
+      - "Support other MLB teams"
+      - "Support playoff or postseason game types"
+    context_files:
+      - ".agents-work/2026-05-01_morning-brief-system/spec.md"
+      - ".agents-work/2026-05-01_morning-brief-system/architecture.md"
+    files_expected:
+      - "scripts/fetchers/sports_fetcher.py"
+    acceptance_checks:
+      - "cmd: python -c \"from scripts.fetchers.sports_fetcher import fetch; print('imported ok')\""
+      - "manual: Confirm AC-005 — fetch() returns opponent, dodgers_score, opponent_score, series_status"
+      - "manual: Confirm AC-010 — exceptions caught; FetchResult(status='failed') on error"
+      - "manual: Confirm EC-005 — off-season returns FetchResult with message field, not a crash"
+      - "manual: Confirm team ID 119 is a hardcoded constant (not a secret)"
+    risk_flags:
+      - "none"
+    done_when:
+      - "fetch() queries MLB Stats API for Dodgers (team ID 119)"
+      - "Returns opponent, scores, and series status in data"
+      - "Off-season edge case handled (EC-005)"
+      - "All exceptions caught; graceful failure (AC-010)"
+
+  - id: T-008
+    status: completed
+    type: feat
+    title: "MTG fetcher — Scryfall API sets released within last 7 days with empty-results handling"
+    depends_on:
+      - "T-003"
+    goal: "Implement scripts/fetchers/mtg_fetcher.py with fetch(config: dict) -> FetchResult. Query Scryfall API (https://api.scryfall.com/sets) to retrieve all sets, then filter for sets where released_at is within the last 7 days from UTC now. Return FetchResult with data as list of dicts, each containing: set_name, release_date, description (card_count or set type info). Handle EC-006 (no recent releases) by returning FetchResult with data={'message': 'No new MTG releases in the last 7 days.'}. No authentication required. Catch all exceptions and return FetchResult(status='failed')."
+    non_goals:
+      - "Fetch individual card spoilers (sets only)"
+      - "Support configurable lookback windows"
+    context_files:
+      - ".agents-work/2026-05-01_morning-brief-system/spec.md"
+      - ".agents-work/2026-05-01_morning-brief-system/architecture.md"
+    files_expected:
+      - "scripts/fetchers/mtg_fetcher.py"
+    acceptance_checks:
+      - "cmd: python -c \"from scripts.fetchers.mtg_fetcher import fetch; print('imported ok')\""
+      - "manual: Confirm AC-006 — fetch() returns sets with set_name, release_date, description fields"
+      - "manual: Confirm AC-006 — all returned sets have release_date within last 7 days"
+      - "manual: Confirm AC-010 — exceptions caught; FetchResult(status='failed') on error"
+      - "manual: Confirm EC-006 — empty results return FetchResult with message, not empty list crash"
+    risk_flags:
+      - "none"
+    done_when:
+      - "fetch() queries Scryfall /sets and filters by last 7 days"
+      - "Each entry has set_name, release_date, description"
+      - "Empty-results edge case handled (EC-006)"
+      - "All exceptions caught; graceful failure (AC-010)"
+
+  - id: T-009
+    status: completed
+    type: feat
+    title: "Slack notifier — optional Incoming Webhook POST with per-source status summary"
+    depends_on:
+      - "T-003"
+    goal: "Implement scripts/notifiers/slack_notifier.py with post_summary(results: dict, report_filename: str, generated_at: str) -> None. Check for SLACK_WEBHOOK_URL in config/env; if absent, log at INFO level and return immediately (no-op). If present, POST to the webhook URL via http_client.get (or requests.post directly) with a JSON payload containing: report_filename, ISO-8601 UTC generated_at timestamp, and per-source status (✅ success / ❌ failed) for each of the 5 sources. Failure to notify (HTTP error, timeout) MUST log a WARNING and not raise — it must never affect the orchestrator exit code."
+    non_goals:
+      - "Support Slack OAuth or Bot Token auth"
+      - "Post the full markdown report content to Slack"
+    context_files:
+      - ".agents-work/2026-05-01_morning-brief-system/spec.md"
+      - ".agents-work/2026-05-01_morning-brief-system/architecture.md"
+    files_expected:
+      - "scripts/notifiers/slack_notifier.py"
+    acceptance_checks:
+      - "cmd: python -c \"from scripts.notifiers.slack_notifier import post_summary; print('imported ok')\""
+      - "manual: Confirm AC-009 — SLACK_WEBHOOK_URL is never hardcoded; read from environment only"
+      - "manual: Confirm function returns silently when SLACK_WEBHOOK_URL is not set"
+      - "manual: Confirm Slack POST payload includes filename, timestamp, and per-source ✅/❌ status"
+      - "manual: Confirm webhook POST failure logs WARNING only and does not raise exception"
+    risk_flags:
+      - "security"
+    done_when:
+      - "post_summary() is a no-op when SLACK_WEBHOOK_URL absent"
+      - "Webhook URL never hardcoded or logged"
+      - "Notification failure is non-fatal (WARNING log only)"
+      - "Payload includes filename, ISO-8601 timestamp, per-source status"
+
+  - id: T-010
+    status: completed
+    type: feat
+    title: "Report builder — markdown template renderer with all 5 sections and metadata footer"
+    depends_on:
+      - "T-003"
+    goal: "Implement scripts/formatters/report_builder.py with build_report(results: dict[str, FetchResult], generated_at: str) -> str. Render a complete markdown document with clearly labelled H2 sections for: JIRA Sprint Status, Weather, Political Headlines, LA Dodgers, Magic: The Gathering. For each failed FetchResult, render a graceful placeholder message instead of section data. Render JIRA issues as a markdown table (Key | Summary | Assignee | Status). Render news headlines as a markdown table (Title | Source | Date | URL). Render a metadata footer section (H2 ## Report Metadata) with: ISO-8601 UTC generated_at timestamp and per-source status (success/failed/skipped) for all 5 sources. Ensure no env var values are rendered into output."
+    non_goals:
+      - "Support configurable templates"
+      - "Write the file to disk (that is the orchestrator's responsibility)"
+    context_files:
+      - ".agents-work/2026-05-01_morning-brief-system/spec.md"
+      - ".agents-work/2026-05-01_morning-brief-system/architecture.md"
+    files_expected:
+      - "scripts/formatters/report_builder.py"
+    acceptance_checks:
+      - "cmd: python -c \"from scripts.formatters.report_builder import build_report; print('imported ok')\""
+      - "manual: Confirm AC-011 — output markdown includes '## Report Metadata' footer with ISO-8601 UTC timestamp and per-source status for all 5 sources"
+      - "manual: Confirm AC-012 — JIRA table renders with | Key | Summary | Assignee | Status | columns"
+      - "manual: Confirm AC-012 — News table renders with | Title | Source | Date | URL | columns"
+      - "manual: Confirm failed FetchResult renders placeholder message, not empty section or crash"
+      - "manual: Confirm EC-004 text 'No active sprint found.' renders correctly in JIRA section"
+      - "manual: Confirm EC-005 text 'No recent Dodgers game available.' renders in Sports section"
+      - "manual: Confirm EC-006 text 'No new MTG releases in the last 7 days.' renders in MTG section"
+    risk_flags:
+      - "none"
+    done_when:
+      - "build_report() returns complete markdown string with all 5 sections"
+      - "Metadata footer includes ISO-8601 UTC timestamp and per-source status (AC-011)"
+      - "Markdown tables used for JIRA and News sections (AC-012)"
+      - "Graceful placeholders rendered for failed sources (AC-010)"
+      - "No hardcoded credential values in output"
+
+  - id: T-011
+    status: completed
+    type: feat
+    title: "Main orchestrator — morning_brief.py startup validation, parallel fetch, file write, exit codes"
+    depends_on:
+      - "T-004"
+      - "T-005"
+      - "T-006"
+      - "T-007"
+      - "T-008"
+      - "T-009"
+      - "T-010"
+    goal: "Implement scripts/morning_brief.py as the main entry point. Steps: (1) validate_config(): read JIRA_API_TOKEN, JIRA_HOST, NEWSAPI_KEY from os.environ; log missing secret names (never values); raise SystemExit(1) if all required secrets absent. (2) Use ThreadPoolExecutor(max_workers=5) to run all 5 fetchers concurrently, each wrapped in try/except. (3) Collect FetchResult objects. (4) Call build_report(results, generated_at) where generated_at is UTC ISO-8601 now. (5) Compute UTC date, construct filename Morning-Brief-YYYY-MM-DD.md, write to .agents-work/2026-05-01_morning-brief-system/. (6) Call post_summary() if SLACK_WEBHOOK_URL set. (7) sys.exit(0) if at least one fetch succeeded; sys.exit(1) if all failed."
+    non_goals:
+      - "Implement any fetcher or report rendering logic"
+      - "Store credentials beyond reading from os.environ"
+    context_files:
+      - ".agents-work/2026-05-01_morning-brief-system/spec.md"
+      - ".agents-work/2026-05-01_morning-brief-system/architecture.md"
+    files_expected:
+      - "scripts/morning_brief.py"
+    acceptance_checks:
+      - "cmd: python -c \"import scripts.morning_brief; print('imported ok')\""
+      - "manual: Confirm AC-002 — JIRA section in generated report includes key, summary, assignee, status"
+      - "manual: Confirm AC-003 — Weather section in generated report includes High/Low °F and precipitation"
+      - "manual: Confirm AC-004 — News section includes exactly 5 headlines with source, date, URL"
+      - "manual: Confirm AC-005 — Sports section includes Dodgers opponent, score, series status"
+      - "manual: Confirm AC-006 — MTG section includes sets released within last 7 days"
+      - "manual: Confirm AC-007 — output filename is Morning-Brief-YYYY-MM-DD.md using UTC date"
+      - "manual: Confirm AC-008 — report is written to .agents-work/2026-05-01_morning-brief-system/"
+      - "manual: Confirm AC-009 — all secrets read via os.environ.get(); no hardcoded values anywhere in script"
+      - "manual: Confirm AC-010 — partial report generated if one source fails; exit code 0 on partial success"
+      - "manual: Confirm exit code 1 when ALL sources fail"
+      - "manual: Confirm ThreadPoolExecutor runs all 5 fetchers concurrently"
+    risk_flags:
+      - "security"
+    done_when:
+      - "Script runs end-to-end with valid secrets and writes Morning-Brief-YYYY-MM-DD.md"
+      - "All 5 fetchers dispatched via ThreadPoolExecutor"
+      - "Exit code 0 on success or partial success; 1 on total failure"
+      - "Startup validation logs missing secret names only (never values)"
+      - "Report file written to correct directory (AC-008)"
+
+  - id: T-012
+    status: completed
+    type: test
+    title: "Unit tests for all fetchers, http_client, and report_builder using mocked HTTP"
+    depends_on:
+      - "T-004"
+      - "T-005"
+      - "T-006"
+      - "T-007"
+      - "T-008"
+      - "T-009"
+      - "T-010"
+      - "T-003"
+    goal: "Write unit tests in tests/test_*.py files using unittest.mock.patch to mock http_client.get (and requests.Session.get for http_client tests). Cover per-fetcher: (a) successful parse of realistic fixture response returns FetchResult(status='success') with correct data fields, (b) HTTP error returns FetchResult(status='failed'), (c) malformed JSON/missing fields returns FetchResult(status='failed'), (d) edge-case empty responses (EC-004 no sprint, EC-005 off-season, EC-006 no MTG sets). For http_client: verify retry count, sleep timing (mock time.sleep), timeout parameter, HTTPS enforcement, HTTP 429 handling. For report_builder: supply mixed success/failed FetchResults; assert section headings, placeholder messages, and footer content."
+    non_goals:
+      - "Test against live APIs (that is T-013)"
+      - "Test GitHub Actions workflow YAML syntax"
+    context_files:
+      - ".agents-work/2026-05-01_morning-brief-system/spec.md"
+      - ".agents-work/2026-05-01_morning-brief-system/architecture.md"
+    files_expected:
+      - "tests/test_jira_fetcher.py"
+      - "tests/test_weather_fetcher.py"
+      - "tests/test_news_fetcher.py"
+      - "tests/test_sports_fetcher.py"
+      - "tests/test_mtg_fetcher.py"
+      - "tests/test_report_builder.py"
+      - "tests/test_http_client.py"
+    acceptance_checks:
+      - "cmd: pytest tests/ -v --ignore=tests/test_integration.py && echo ALL_UNIT_TESTS_PASSED"
+      - "manual: Confirm each fetcher test file tests success path, HTTP error path, and edge case (EC-001 through EC-008 where applicable)"
+      - "manual: Confirm test_http_client.py verifies retry count=2, sleep intervals 1s and 2s (mocked), and HTTPS rejection"
+      - "manual: Confirm test_report_builder.py asserts metadata footer contains per-source status and ISO-8601 timestamp (AC-011)"
+      - "manual: Confirm test_report_builder.py asserts JIRA and News sections render as markdown tables (AC-012)"
+    risk_flags:
+      - "none"
+    done_when:
+      - "pytest tests/ (excluding integration) exits 0 with all tests passing"
+      - "Each fetcher module has at least 4 test cases (success, HTTP error, parse error, edge case)"
+      - "http_client retry logic and HTTPS enforcement covered"
+      - "report_builder tests cover AC-011 metadata footer and AC-012 markdown rendering"
+
+  - id: T-013
+    status: completed
+    type: test
+    title: "Integration test — full pipeline with test credentials validating output markdown format"
+    depends_on:
+      - "T-011"
+      - "T-012"
+    goal: "Write tests/test_integration.py with a full end-to-end integration test marked @pytest.mark.integration. The test should: (1) set test env vars (may use mock or real test credentials from environment), (2) call the orchestrator or invoke morning_brief.py as a subprocess, (3) assert the output Morning-Brief-*.md file exists in the correct directory, (4) assert the file is non-empty and contains all 5 expected section headers (## JIRA Sprint Status, ## Weather, ## Political Headlines, ## LA Dodgers, ## Magic: The Gathering), (5) assert the metadata footer section exists (## Report Metadata), (6) assert the filename matches Morning-Brief-YYYY-MM-DD.md pattern."
+    non_goals:
+      - "Validate live API data accuracy (covered by manual AC checks)"
+      - "Run as part of the default pytest suite without the integration marker"
+    context_files:
+      - ".agents-work/2026-05-01_morning-brief-system/spec.md"
+      - ".agents-work/2026-05-01_morning-brief-system/architecture.md"
+    files_expected:
+      - "tests/test_integration.py"
+    acceptance_checks:
+      - "cmd: pytest tests/test_integration.py -v -m integration && echo INTEGRATION_TEST_PASSED"
+      - "manual: Confirm test is marked @pytest.mark.integration so it does not run in CI by default"
+      - "manual: Confirm test asserts output file exists in .agents-work/2026-05-01_morning-brief-system/"
+      - "manual: Confirm test asserts all 5 section headers present in generated markdown"
+      - "manual: Confirm AC-007 — test asserts filename matches Morning-Brief-YYYY-MM-DD.md pattern"
+      - "manual: Confirm AC-008 — test asserts report directory is .agents-work/2026-05-01_morning-brief-system/"
+    risk_flags:
+      - "none"
+    done_when:
+      - "test_integration.py exists with at least one @pytest.mark.integration test"
+      - "Test validates output file existence, correct directory, and filename format"
+      - "Test validates all 5 section headers and metadata footer presence"
+      - "Test isolated from unit test suite via marker"
+
+  - id: T-014
+    status: completed
+    type: docs
+    title: "Setup documentation — SETUP.md with GitHub Secrets, step-by-step setup, and troubleshooting"
+    depends_on:
+      - "T-002"
+      - "T-011"
+    goal: "Create SETUP.md at repo root documenting: (1) all required GitHub Secrets (JIRA_API_TOKEN, JIRA_HOST, NEWSAPI_KEY) and optional secrets (SLACK_WEBHOOK_URL, OPENWEATHER_API_KEY) with descriptions and where to obtain each; (2) step-by-step instructions to configure GitHub Secrets in the repository Settings; (3) how to trigger the workflow manually via workflow_dispatch in GitHub Actions UI; (4) how to run locally with a .env file for development; (5) troubleshooting section covering common errors (missing secrets, API rate limits, JIRA auth failures); (6) brief description of the generated report format and where to find it."
+    non_goals:
+      - "Document internal code architecture (that is in architecture.md)"
+      - "Provide API vendor documentation"
+    context_files:
+      - ".agents-work/2026-05-01_morning-brief-system/spec.md"
+      - ".agents-work/2026-05-01_morning-brief-system/architecture.md"
+    files_expected:
+      - "SETUP.md"
+    acceptance_checks:
+      - "cmd: test -f SETUP.md && echo SETUP_EXISTS"
+      - "manual: Confirm AC-009 — SETUP.md lists all required secrets: JIRA_API_TOKEN, JIRA_HOST, NEWSAPI_KEY"
+      - "manual: Confirm AC-012 — SETUP.md itself renders cleanly in GitHub markdown viewer with proper headings"
+      - "manual: Confirm step-by-step GitHub Secrets setup instructions are clear and actionable"
+      - "manual: Confirm workflow_dispatch testing instructions are included"
+      - "manual: Confirm troubleshooting section covers: missing secrets, HTTP 429 rate limiting, JIRA auth failures"
+    risk_flags:
+      - "none"
+    done_when:
+      - "SETUP.md exists at repo root"
+      - "All required and optional GitHub Secrets documented with descriptions"
+      - "Step-by-step setup instructions present"
+      - "workflow_dispatch manual trigger instructions included"
+      - "Troubleshooting section covers common error scenarios"
+      - "Document renders cleanly in GitHub UI (AC-012)"

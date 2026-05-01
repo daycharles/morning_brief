@@ -1,0 +1,13 @@
+{
+  // Augment project settings
+  // Skills are auto-loaded from .augment/skills/ — no config needed here.
+  // Add lifecycle hooks below if you need shell-script intercepts on tool events.
+  //
+  // "hooks": {
+  //   "PreToolUse":  [{ "matcher": "launch-process", "hooks": [{ "type": "command", "command": ".augment/hooks/pre-launch.sh" }] }],
+  //   "PostToolUse": [],
+  //   "Stop":        [],
+  //   "SessionStart":[],
+  //   "SessionEnd":  []
+  // }
+}
