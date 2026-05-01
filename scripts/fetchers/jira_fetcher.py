@@ -7,8 +7,7 @@ from scripts.utils.http_client import get
 
 logger = logging.getLogger(__name__)
 
-_JQL_IN_PROGRESS = "status = 'In Progress' AND sprint in openSprints()"
-_JQL_NEW_24H = "created >= -24h"
+_JQL_IN_PROGRESS = 'assignee = currentUser() AND sprint in openSprints() AND status in ("Ready for Dev", "Dev In Prog")'
 _FIELDS = "key,summary,assignee,status"
 
 
@@ -65,18 +64,9 @@ def fetch(config: dict) -> FetchResult:
             "Accept": "application/json",
         }
 
-        # Run both JQL queries
-        in_progress_raw = _run_jql(base_url, _JQL_IN_PROGRESS, headers)
-        new_24h_raw = _run_jql(base_url, _JQL_NEW_24H, headers)
-
-        # Merge and deduplicate by issue key (EC-008)
-        seen_keys: set[str] = set()
-        issues: list[dict] = []
-        for raw_issue in in_progress_raw + new_24h_raw:
-            key = raw_issue.get("key", "")
-            if key and key not in seen_keys:
-                seen_keys.add(key)
-                issues.append(_parse_issue(raw_issue))
+        # Run JQL query
+        raw_issues = _run_jql(base_url, _JQL_IN_PROGRESS, headers)
+        issues = [_parse_issue(raw_issue) for raw_issue in raw_issues]
 
         logger.info("JIRA: fetched %d unique issues", len(issues))
 
