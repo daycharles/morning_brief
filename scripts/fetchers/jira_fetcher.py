@@ -59,7 +59,7 @@ def fetch(config: dict) -> FetchResult:
                 missing.append("jira_api_token")
             raise ValueError(f"Missing required config keys: {missing}")
 
-        base_url = f"https://{jira_host}/rest/api/3/search"
+        base_url = f"https://{jira_host}/rest/api/3/search/jql"
         headers = {
             "Authorization": f"Bearer {jira_api_token}",
             "Accept": "application/json",
