@@ -8,6 +8,10 @@ import sys
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 
+# Ensure repo root is on sys.path so `scripts.*` imports work when the script
+# is invoked directly (e.g. `python scripts/morning_brief.py` from repo root).
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 from scripts.fetchers import (
     jira_fetcher,
     mtg_fetcher,
